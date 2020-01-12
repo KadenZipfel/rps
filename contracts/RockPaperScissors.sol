@@ -21,7 +21,7 @@ contract RockPaperScissors {
         bytes32 commitment;
         Choice choice;
     }
-    
+
     // events
     event Payout(address player, uint amount);
 
@@ -42,20 +42,20 @@ contract RockPaperScissors {
     }
 
     // TODO: go through and write explicit 'stored' and 'memory' everywhere
-    function commit(bytes32 commitment) payable public {
+    function commit(bytes32 commitment) public payable {
         // only allow commit stages
         uint playerIndex;
         if(stage == Stage.FirstCommit) playerIndex = 0;
         else if(stage == Stage.SecondCommit) playerIndex = 1;
-        else revert();
+        else revert("both players have already played");
 
         //TODO: possible overflow
         uint commitAmount = bet + deposit;
-        require(msg.value >= commitAmount);
-        
+        require(msg.value >= commitAmount, "value must be greater than commit amount");
+
         // return any excess
         if(msg.value > commitAmount) msg.sender.transfer(msg.value - commitAmount);
-        
+
         // store the commitment
         players[playerIndex] = CommitChoice(msg.sender, commitment, Choice.None);
 
@@ -64,33 +64,33 @@ contract RockPaperScissors {
         // otherwise we must already be on the second, move to first reveal
         else stage = Stage.FirstReveal;
     }
-    
+
     function reveal(Choice choice, bytes32 blindingFactor) public {
-        require(stage == Stage.FirstReveal || stage == Stage.SecondReveal);
+        require(stage == Stage.FirstReveal || stage == Stage.SecondReveal, "not at reveal stage");
         // only valid choices
-        require(choice == Choice.Rock || choice == Choice.Paper || choice == Choice.Scissors);
-        
+        require(choice == Choice.Rock || choice == Choice.Paper || choice == Choice.Scissors, "invalid choice");
+
         // find the player index
         uint playerIndex;
         if(players[0].playerAddress == msg.sender) playerIndex = 0;
         else if (players[1].playerAddress == msg.sender) playerIndex = 1;
         // unknown player
-        else revert();
+        else revert("unknown player");
 
         // find the player data
-        CommitChoice storage commitChoice = players[playerIndex]; 
+        CommitChoice storage commitChoice = players[playerIndex];
 
         // check the hash, we have a hash of sender, choice, blind so that players cannot learn anything from a committment
         // if it were just choice, blind the other player could view this and submit it themselves to reliably achieve a draw
-        require(keccak256(abi.encodePacked(msg.sender, choice, blindingFactor)) == commitChoice.commitment);
-        
+        require(keccak256(abi.encodePacked(msg.sender, choice, blindingFactor)) == commitChoice.commitment, "invalid hash");
+
         // update if correct
         commitChoice.choice = choice;
 
-        if(stage == Stage.FirstReveal) { 
+        if(stage == Stage.FirstReveal) {
             // TODO: possible overflow
-            // if this is the first reveal we set the deadline for the second one 
-            revealDeadline = block.number + revealSpan; 
+            // if this is the first reveal we set the deadline for the second one
+            revealDeadline = block.number + revealSpan;
             // if we're on first reveal, move to the second
             stage = Stage.SecondReveal;
         }
@@ -101,7 +101,7 @@ contract RockPaperScissors {
     function distribute() public {
         // to distribute we need:
         // a) to be in the distribute stage OR b) still in the second reveal stage but past the deadline
-        require(stage == Stage.Distribute || (stage == Stage.SecondReveal && revealDeadline <= block.number));
+        require(stage == Stage.Distribute || (stage == Stage.SecondReveal && revealDeadline <= block.number), "cannot yet");
 
         // calulate value of payouts for players
         //TODO: possible overflow
@@ -134,7 +134,8 @@ contract RockPaperScissors {
                 // rock beats scissors
                 player0Payout = winningAmount;
                 player1Payout = deposit;
-            } 
+            }
+            // TODO: Replace with assert statement
             else revert();
 
         }
@@ -149,6 +150,7 @@ contract RockPaperScissors {
                 player0Payout = deposit;
                 player1Payout = winningAmount;
             }
+            // TODO: Replace with assert statement
             else revert();
         }
         else if(players[0].choice == Choice.Scissors) {
@@ -162,16 +164,19 @@ contract RockPaperScissors {
                 player0Payout = winningAmount;
                 player1Payout = deposit;
             }
+            // TODO: Replace with assert statement
             else revert();
         }
+        // TODO: Replace with assert statement
         else revert();
 
         // send the payouts
+        // TODO: Use low level call instead of send
         if(player0Payout != 0 && players[0].playerAddress.send(player0Payout)){
-            emit Payout(players[0].playerAddress, player0Payout);            
+            emit Payout(players[0].playerAddress, player0Payout);
         }
         if(player1Payout != 0 && players[1].playerAddress.send(player1Payout)){
-            emit Payout(players[1].playerAddress, player1Payout);            
+            emit Payout(players[1].playerAddress, player1Payout);
         }
 
         //reset the state to play again
