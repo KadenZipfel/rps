@@ -22,15 +22,14 @@ contract RockPaperScissors {
         Choice choice;
     }
 
-    // events
     event Payout(address player, uint amount);
 
-    //initialisation args
+    // Initialisation args
     uint public bet;
     uint public deposit;
     uint public revealSpan;
 
-    // state vars
+    // State vars
     CommitChoice[2] public players;
     uint public revealDeadline;
     Stage public stage = Stage.FirstCommit;
@@ -41,9 +40,8 @@ contract RockPaperScissors {
         revealSpan = _revealSpan;
     }
 
-    // TODO: go through and write explicit 'stored' and 'memory' everywhere
     function commit(bytes32 commitment) public payable {
-        // only allow commit stages
+        // Only run during commit stages
         uint playerIndex;
         if(stage == Stage.FirstCommit) playerIndex = 0;
         else if(stage == Stage.SecondCommit) playerIndex = 1;
@@ -53,89 +51,87 @@ contract RockPaperScissors {
         require(commitAmount >= bet, "overflow error");
         require(msg.value >= commitAmount, "value must be greater than commit amount");
 
-        // return any excess
+        // Return additional funds transferred
         if(msg.value > commitAmount) {
             (bool success, ) = msg.sender.call.value(msg.value - commitAmount)("");
             require(success, "call failed");
         }
 
-        // store the commitment
+        // Store the commitment
         players[playerIndex] = CommitChoice(msg.sender, commitment, Choice.None);
 
-        // if we're on the first commit, then move to the second
+        // If we're on the first commit, then move to the second
         if(stage == Stage.FirstCommit) stage = Stage.SecondCommit;
-        // otherwise we must already be on the second, move to first reveal
+        // Otherwise we must already be on the second, move to first reveal
         else stage = Stage.FirstReveal;
     }
 
     function reveal(Choice choice, bytes32 blindingFactor) public {
+        // Only run during reveal stages
         require(stage == Stage.FirstReveal || stage == Stage.SecondReveal, "not at reveal stage");
-        // only valid choices
+        // Only accept valid choices
         require(choice == Choice.Rock || choice == Choice.Paper || choice == Choice.Scissors, "invalid choice");
 
-        // find the player index
+        // Find the player index
         uint playerIndex;
         if(players[0].playerAddress == msg.sender) playerIndex = 0;
         else if (players[1].playerAddress == msg.sender) playerIndex = 1;
-        // unknown player
+        // Revert if unknown player
         else revert("unknown player");
 
-        // find the player data
+        // Find player data
         CommitChoice storage commitChoice = players[playerIndex];
 
-        // check the hash, we have a hash of sender, choice, blind so that players cannot learn anything from a committment
-        // if it were just choice, blind the other player could view this and submit it themselves to reliably achieve a draw
+        // Check the hash to ensure the commitment is correct
         require(keccak256(abi.encodePacked(msg.sender, choice, blindingFactor)) == commitChoice.commitment, "invalid hash");
 
-        // update if correct
+        // Update choice if correct
         commitChoice.choice = choice;
 
         if(stage == Stage.FirstReveal) {
-            // if this is the first reveal we set the deadline for the second one
+            // If this is the first reveal, set the deadline for the second one
             revealDeadline = block.number + revealSpan;
             require(revealDeadline >= block.number, "overflow error");
-            // if we're on first reveal, move to the second
+            // Move to second reveal
             stage = Stage.SecondReveal;
         }
-        // if we're on second reveal, move to distribute
+        // If we're on second reveal, move to distribute stage
         else stage = Stage.Distribute;
     }
 
     function distribute() public {
-        // to distribute we need:
-        // a) to be in the distribute stage OR b) still in the second reveal stage but past the deadline
-        require(stage == Stage.Distribute || (stage == Stage.SecondReveal && revealDeadline <= block.number), "cannot yet");
+        // To distribute we need:
+            // a) To be in the distribute stage OR
+            // b) Still in the second reveal stage but past the deadline
+        require(stage == Stage.Distribute || (stage == Stage.SecondReveal && revealDeadline <= block.number), "cannot yet distribute");
 
-        // calulate value of payouts for players
+        // Calculate value of payouts for players
         uint player0Payout;
         uint player1Payout;
         uint winningAmount = deposit + 2 * bet;
         require(winningAmount / deposit == 2 * bet, "overflow error");
 
-        // we always draw with the same choices, and we dont lose our deposit even if neither revealed
+        // If both players picked the same choice, return their deposits and bets
         if(players[0].choice == players[1].choice) {
             player0Payout = deposit + bet;
             player1Payout = deposit + bet;
         }
-        // at least one person has made a choice, otherwise we wouldn't be here
-        // in the situation that only one person chose that person wins, and the person
-        // who did not will lose their deposit
+        // If only one player made a choice, they win
         else if(players[0].choice == Choice.None) {
             player1Payout = winningAmount;
         }
         else if(players[1].choice == Choice.None) {
             player0Payout = winningAmount;
         }
-        // both players have made a choice, and they did not draw
         else if(players[0].choice == Choice.Rock) {
             assert(players[1].choice == Choice.Paper || players[1].choice == Choice.Scissors);
             if(players[1].choice == Choice.Paper) {
-                // rock loses to paper
+                // Rock loses to paper
                 player0Payout = deposit;
                 player1Payout = winningAmount;
             }
             else if(players[1].choice == Choice.Scissors) {
-                // rock beats scissors
+                // Rock beats scissors
                 player0Payout = winningAmount;
                 player1Payout = deposit;
             }
@@ -144,12 +140,12 @@ contract RockPaperScissors {
         else if(players[0].choice == Choice.Paper) {
             assert(players[1].choice == Choice.Rock || players[1].choice == Choice.Scissors);
             if(players[1].choice == Choice.Rock) {
-                // paper beats rock
+                // Paper beats rock
                 player0Payout = winningAmount;
                 player1Payout = deposit;
             }
             else if(players[1].choice == Choice.Scissors) {
-                // paper loses to scissors
+                // Paper loses to scissors
                 player0Payout = deposit;
                 player1Payout = winningAmount;
             }
@@ -157,19 +153,19 @@ contract RockPaperScissors {
         else if(players[0].choice == Choice.Scissors) {
             assert(players[1].choice == Choice.Paper || players[1].choice == Choice.Rock);
             if(players[1].choice == Choice.Rock) {
-                // scissors lose to paper
+                // Scissors lose to rock
                 player0Payout = deposit;
                 player1Payout = winningAmount;
             }
             else if(players[1].choice == Choice.Paper) {
-                // scissors beats paper
+                // Scissors beats paper
                 player0Payout = winningAmount;
                 player1Payout = deposit;
             }
         }
         else revert("invalid choice");
 
-        // send the payouts
+        // Send the payouts
         if(player0Payout > 0) {
             (bool success, ) = players[0].playerAddress.call.value(player0Payout)("");
             require(success, 'call failed');
@@ -180,33 +176,9 @@ contract RockPaperScissors {
             emit Payout(players[1].playerAddress, player1Payout);
         }
 
-        //reset the state to play again
+        // Reset the state to play again
         delete players;
         revealDeadline = 0;
         stage = Stage.FirstCommit;
     }
 }
-
-// ISSUES
-
-// 1. We should pass in the address of the other player to 'commit',
-//      then adding a second commit should start the timer
-
-// concerns - assymetry in setting timeout
-// concerns - timeout possibly not greatly reduced by addition of deposit
-
-// TODO: look at all the access modifiers for all members and functions
-// TODO: what are the consequences?
-
-// TODO: checkout all the integer operations for possible overflows
-// TODO: consider event logging
-
-
-// IMPROVMENTS:
-
-// 1. Allow second player to reveal without committing.
-// 2. Allow re-use of the contract? Or allow a self destruct to occur?
-// 3. Choose where to send lost deposits.
-// 4. Allow a player to forfeit for a cheaper gas cost?
-
-
