@@ -49,8 +49,8 @@ contract RockPaperScissors {
         else if(stage == Stage.SecondCommit) playerIndex = 1;
         else revert("both players have already played");
 
-        //TODO: possible overflow
         uint commitAmount = bet + deposit;
+        require(commitAmount >= bet, "overflow error");
         require(msg.value >= commitAmount, "value must be greater than commit amount");
 
         // return any excess
@@ -88,9 +88,9 @@ contract RockPaperScissors {
         commitChoice.choice = choice;
 
         if(stage == Stage.FirstReveal) {
-            // TODO: possible overflow
             // if this is the first reveal we set the deadline for the second one
             revealDeadline = block.number + revealSpan;
+            require(revealDeadline >= block.number, "overflow error");
             // if we're on first reveal, move to the second
             stage = Stage.SecondReveal;
         }
@@ -104,10 +104,10 @@ contract RockPaperScissors {
         require(stage == Stage.Distribute || (stage == Stage.SecondReveal && revealDeadline <= block.number), "cannot yet");
 
         // calulate value of payouts for players
-        //TODO: possible overflow
         uint player0Payout;
         uint player1Payout;
         uint winningAmount = deposit + 2 * bet;
+        require(winningAmount / deposit == 2 * bet, "overflow error");
 
         // we always draw with the same choices, and we dont lose our deposit even if neither revealed
         if(players[0].choice == players[1].choice) {
