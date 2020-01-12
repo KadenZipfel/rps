@@ -54,7 +54,10 @@ contract RockPaperScissors {
         require(msg.value >= commitAmount, "value must be greater than commit amount");
 
         // return any excess
-        if(msg.value > commitAmount) msg.sender.transfer(msg.value - commitAmount);
+        if(msg.value > commitAmount) {
+            (bool success, ) = msg.sender.call.value(msg.value - commitAmount)("");
+            require(success, "call failed");
+        }
 
         // store the commitment
         players[playerIndex] = CommitChoice(msg.sender, commitment, Choice.None);
@@ -171,11 +174,13 @@ contract RockPaperScissors {
         else revert();
 
         // send the payouts
-        // TODO: Use low level call instead of send
-        if(player0Payout != 0 && players[0].playerAddress.send(player0Payout)){
+        if(player0Payout > 0) {
+            (bool success, ) = players[0].playerAddress.call.value(player0Payout)("");
+            require(success, 'call failed');
             emit Payout(players[0].playerAddress, player0Payout);
-        }
-        if(player1Payout != 0 && players[1].playerAddress.send(player1Payout)){
+        } else if (player1Payout > 0) {
+            (bool success, ) = players[1].playerAddress.call.value(player1Payout)("");
+            require(success, 'call failed');
             emit Payout(players[1].playerAddress, player1Payout);
         }
 
