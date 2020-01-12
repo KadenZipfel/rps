@@ -128,6 +128,7 @@ contract RockPaperScissors {
         }
         // both players have made a choice, and they did not draw
         else if(players[0].choice == Choice.Rock) {
+            assert(players[1].choice == Choice.Paper || Choice.Scissors);
             if(players[1].choice == Choice.Paper) {
                 // rock loses to paper
                 player0Payout = deposit;
@@ -138,11 +139,10 @@ contract RockPaperScissors {
                 player0Payout = winningAmount;
                 player1Payout = deposit;
             }
-            // TODO: Replace with assert statement
-            else revert();
 
         }
         else if(players[0].choice == Choice.Paper) {
+            assert(players[1].choice == Choice.Rock || Choice.Scissors);
             if(players[1].choice == Choice.Rock) {
                 // paper beats rock
                 player0Payout = winningAmount;
@@ -153,10 +153,9 @@ contract RockPaperScissors {
                 player0Payout = deposit;
                 player1Payout = winningAmount;
             }
-            // TODO: Replace with assert statement
-            else revert();
         }
         else if(players[0].choice == Choice.Scissors) {
+            assert(players[1].choice == Choice.Paper || Choice.Rock);
             if(players[1].choice == Choice.Rock) {
                 // scissors lose to paper
                 player0Payout = deposit;
@@ -167,11 +166,8 @@ contract RockPaperScissors {
                 player0Payout = winningAmount;
                 player1Payout = deposit;
             }
-            // TODO: Replace with assert statement
-            else revert();
         }
-        // TODO: Replace with assert statement
-        else revert();
+        else revert("invalid choice");
 
         // send the payouts
         if(player0Payout > 0) {
