@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 contract RockPaperScissors {
     enum Choice {
@@ -128,7 +128,7 @@ contract RockPaperScissors {
         }
         // both players have made a choice, and they did not draw
         else if(players[0].choice == Choice.Rock) {
-            assert(players[1].choice == Choice.Paper || Choice.Scissors);
+            assert(players[1].choice == Choice.Paper || players[1].choice == Choice.Scissors);
             if(players[1].choice == Choice.Paper) {
                 // rock loses to paper
                 player0Payout = deposit;
@@ -142,7 +142,7 @@ contract RockPaperScissors {
 
         }
         else if(players[0].choice == Choice.Paper) {
-            assert(players[1].choice == Choice.Rock || Choice.Scissors);
+            assert(players[1].choice == Choice.Rock || players[1].choice == Choice.Scissors);
             if(players[1].choice == Choice.Rock) {
                 // paper beats rock
                 player0Payout = winningAmount;
@@ -155,7 +155,7 @@ contract RockPaperScissors {
             }
         }
         else if(players[0].choice == Choice.Scissors) {
-            assert(players[1].choice == Choice.Paper || Choice.Rock);
+            assert(players[1].choice == Choice.Paper || players[1].choice == Choice.Rock);
             if(players[1].choice == Choice.Rock) {
                 // scissors lose to paper
                 player0Payout = deposit;
